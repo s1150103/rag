@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chat</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>RAG Chat</h1>
+        <input type="text" id="url-input" placeholder="インデックスするURLを入力...">
+        <button id="index-btn" onclick="indexUrl()">登録</button>
+    </div>
+    <div class="status-bar" id="status-bar"></div>
+
+    <div class="chat-area" id="chat-area"></div>
+
+    <div class="input-area">
+        <div class="input-wrapper">
+            <textarea id="question-input" placeholder="質問を入力..." rows="1"
+                      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendQuestion()}"></textarea>
+            <button id="send-btn" onclick="sendQuestion()">送信</button>
+        </div>
+    </div>
+
+    <script>
+        const chatArea = document.getElementById('chat-area');
+        const questionInput = document.getElementById('question-input');
+        const sendBtn = document.getElementById('send-btn');
+        const urlInput = document.getElementById('url-input');
+        const indexBtn = document.getElementById('index-btn');
+        const statusBar = document.getElementById('status-bar');
+
+        function showStatus(msg) {
+            statusBar.textContent = msg;
+            statusBar.classList.add('visible');
+        }
+
+        function hideStatus() {
+            statusBar.classList.remove('visible');
+        }
+
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            const roleLabel = document.createElement('div');
+            roleLabel.className = 'role';
+            roleLabel.textContent = role === 'user' ? 'あなた' : 'AI';
+            div.appendChild(roleLabel);
+            const content = document.createElement('div');
+            content.textContent = text;
+            div.appendChild(content);
+            chatArea.appendChild(div);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        async function indexUrl() {
+            const url = urlInput.value.trim();
+            if (!url) return;
+            indexBtn.disabled = true;
+            showStatus('インデックス登録中...');
+            try {
+                const res = await fetch('/api/index', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showStatus(data.message);
+                    urlInput.value = '';
+                } else {
+                    showStatus('エラー: ' + data.error);
+                }
+            } catch (e) {
+                showStatus('通信エラー: ' + e.message);
+            }
+            indexBtn.disabled = false;
+            setTimeout(hideStatus, 5000);
+        }
+
+        async function sendQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) return;
+            addMessage('user', question);
+            questionInput.value = '';
+            sendBtn.disabled = true;
+
+            const thinking = document.createElement('div');
+            thinking.className = 'thinking';
+            thinking.textContent = '回答を生成中...';
+            chatArea.appendChild(thinking);
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            try {
+                const res = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question})
+                });
+                const data = await res.json();
+                thinking.remove();
+                if (res.ok) {
+                    addMessage('assistant', data.answer);
+                } else {
+                    addMessage('assistant', 'エラー: ' + data.error);
+                }
+            } catch (e) {
+                thinking.remove();
+                addMessage('assistant', '通信エラー: ' + e.message);
+            }
+            sendBtn.disabled = false;
+            questionInput.focus();
+        }
+
+        // Auto-resize textarea
+        questionInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+    </script>
+</body>
+</html>
