@@ -28,23 +28,29 @@ def _gemini_api_key():
     return os.environ["GOOGLE_API_KEY"]
 
 
+def _request_with_retry(url, json_body, max_retries=5):
+    """リトライ付きHTTP POST（429レート制限対応）"""
+    for attempt in range(max_retries):
+        resp = requests.post(url, json=json_body)
+        if resp.status_code == 429:
+            wait = 4 * (attempt + 1)
+            print(f"  レート制限、{wait}秒待機中...")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        return resp
+    resp.raise_for_status()
+
+
 class GeminiEmbeddings:
     """Gemini REST API を使った Embedding クラス（ChromaDB互換）"""
 
     def _batch_embed(self, texts):
-        """バッチAPIでEmbedding（リトライ付き）"""
+        """バッチAPIでEmbedding"""
         url = f"{GEMINI_API_BASE}/models/{GEMINI_EMBED_MODEL}:batchEmbedContents?key={_gemini_api_key()}"
         req_list = [{"model": f"models/{GEMINI_EMBED_MODEL}", "content": {"parts": [{"text": t}]}} for t in texts]
-        for attempt in range(5):
-            resp = requests.post(url, json={"requests": req_list})
-            if resp.status_code == 429:
-                wait = 4 * (attempt + 1)
-                print(f"  レート制限、{wait}秒待機中...")
-                time.sleep(wait)
-                continue
-            resp.raise_for_status()
-            return [e["values"] for e in resp.json()["embeddings"]]
-        resp.raise_for_status()
+        resp = _request_with_retry(url, {"requests": req_list})
+        return [e["values"] for e in resp.json()["embeddings"]]
 
     def embed_documents(self, texts):
         results = []
@@ -105,17 +111,7 @@ def ask_question(question: str):
 回答:"""
 
     url = f"{GEMINI_API_BASE}/models/{GEMINI_MODEL}:generateContent?key={_gemini_api_key()}"
-    for attempt in range(5):
-        resp = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
-        if resp.status_code == 429:
-            wait = 4 * (attempt + 1)
-            print(f"  レート制限、{wait}秒待機中...")
-            time.sleep(wait)
-            continue
-        resp.raise_for_status()
-        break
-    else:
-        resp.raise_for_status()
+    resp = _request_with_retry(url, {"contents": [{"parts": [{"text": prompt}]}]})
     answer = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
     print(f"\n{answer}")
     return answer

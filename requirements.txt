@@ -3,3 +3,7 @@ langchain-community
 langchain-chroma
 chromadb
 beautifulsoup4
+flask
+python-dotenv
+requests
+pysqlite3-binary
