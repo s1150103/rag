@@ -32,17 +32,39 @@ RAG/
 
 ## セットアップ
 
+### 1. 仮想環境の作成
+
+プロジェクトの依存パッケージをシステムの Python から分離するため、仮想環境を作成します。
+
 ```bash
 python3 -m venv venv
+```
+
+これにより `venv/` ディレクトリが作成され、プロジェクト専用の Python 環境が用意されます。
+
+### 2. 仮想環境の有効化
+
+```bash
 source venv/bin/activate
+```
+
+有効化するとプロンプトに `(venv)` が表示されます。以降のコマンドはすべてこの仮想環境内で実行してください。
+
+### 3. 依存パッケージのインストール
+
+```bash
 pip install -r requirements.txt
 ```
 
-`.env` ファイルを作成して Gemini API キーを設定：
+### 4. API キーの設定
+
+`.env` ファイルを作成して Gemini API キーを設定します。
 
 ```
 GOOGLE_API_KEY=your_api_key_here
 ```
+
+API キーは [Google AI Studio](https://aistudio.google.com/apikey) から取得できます。
 
 ## 使い方
 
